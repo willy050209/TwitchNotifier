@@ -68,6 +68,10 @@ async Task PerformCheck()
                 channelStates[channelName] = false;
             }
         }
+
+        // Heartbeat 訊息
+        var liveCount = channelStates.Values.Count(isLive => isLive);
+        Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] 狀態檢查完成。目前監控中: {channelStates.Count} 個頻道 (正在直播: {liveCount})");
     }
     catch (Exception ex)
     {

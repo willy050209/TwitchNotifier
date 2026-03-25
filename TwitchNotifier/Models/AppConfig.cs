@@ -12,4 +12,4 @@ public record AppConfig(
     string ClientId,
     string ClientSecret,
     IReadOnlyList<string> Channels,
-    int PollIntervalInMinutes = 3);
+    int PollIntervalInMinutes = 1);
