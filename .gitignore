@@ -1,0 +1,16 @@
+# .NET 產出的編譯檔案
+[Bb]in/
+[Oo]bj/
+
+# Visual Studio 暫存與設定
+.vs/
+*.user
+*.userosscache
+*.sln.docstates
+
+# 重要：忽略環境變數檔案 (包含你的 Twitch 憑證)
+.env
+
+# 其他系統檔案
+.DS_Store
+Thumbs.db
