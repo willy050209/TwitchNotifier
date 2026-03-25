@@ -14,8 +14,10 @@ public class TwitchService(IHttpClientFactory httpClientFactory, AppConfig confi
     /// <summary>
     /// 取得目前正在直播的頻道清單
     /// </summary>
+    /// <param name="channels">要查詢的頻道清單</param>
+    /// <param name="ct">取消權杖</param>
     /// <returns>回傳包含正在直播的頻道名稱 (小寫) 的 HashSet</returns>
-    public async Task<HashSet<string>> GetLiveChannelsAsync(CancellationToken ct = default)
+    public async Task<HashSet<string>> GetLiveChannelsAsync(IEnumerable<string> channels, CancellationToken ct = default)
     {
         if (string.IsNullOrEmpty(_accessToken))
         {
@@ -25,7 +27,7 @@ public class TwitchService(IHttpClientFactory httpClientFactory, AppConfig confi
         var client = httpClientFactory.CreateClient("TwitchApi");
         
         // 同時查詢多個頻道，並將上限設為 100
-        var queryParams = string.Join("&", config.Channels.Select(c => $"user_login={Uri.EscapeDataString(c.ToLowerInvariant())}"));
+        var queryParams = string.Join("&", channels.Select(c => $"user_login={Uri.EscapeDataString(c.ToLowerInvariant())}"));
         var request = new HttpRequestMessage(HttpMethod.Get, $"streams?{queryParams}&first=100");
         
         request.Headers.Add("Client-Id", config.ClientId);
@@ -36,7 +38,7 @@ public class TwitchService(IHttpClientFactory httpClientFactory, AppConfig confi
         if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
         {
             await RefreshTokenAsync(ct);
-            return await GetLiveChannelsAsync(ct);
+            return await GetLiveChannelsAsync(channels, ct);
         }
 
         response.EnsureSuccessStatusCode();

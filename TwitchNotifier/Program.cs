@@ -16,6 +16,7 @@ var configuration = new ConfigurationBuilder()
 var clientId = configuration["TWITCH_CLIENT_ID"];
 var clientSecret = configuration["TWITCH_CLIENT_SECRET"];
 var targetChannelsRaw = configuration["TWITCH_TARGET_CHANNEL"];
+var pollIntervalStr = configuration["TWITCH_POLL_INTERVAL"];
 
 if (string.IsNullOrEmpty(clientId) || string.IsNullOrEmpty(clientSecret) || string.IsNullOrEmpty(targetChannelsRaw))
 {
@@ -23,12 +24,17 @@ if (string.IsNullOrEmpty(clientId) || string.IsNullOrEmpty(clientSecret) || stri
     return;
 }
 
-// 支援以逗號、分號或空白分隔多個頻道
+int pollInterval = 1; // 預設 1 分鐘
+if (int.TryParse(pollIntervalStr, out int parsedInterval) && parsedInterval > 0)
+{
+    pollInterval = parsedInterval;
+}
+
 var channels = targetChannelsRaw
     .Split([',', ';', ' '], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
     .ToList();
 
-var config = new AppConfig(clientId, clientSecret, channels);
+var config = new AppConfig(clientId, clientSecret, channels, pollInterval);
 
 // 設定依賴注入
 var services = new ServiceCollection();
@@ -41,6 +47,7 @@ var serviceProvider = services.BuildServiceProvider();
 var twitchService = serviceProvider.GetRequiredService<TwitchService>();
 
 Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] 開始監控頻道: {string.Join(", ", config.Channels)}...");
+Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] 目前輪詢間隔: {config.PollIntervalInMinutes} 分鐘");
 
 // 使用字典追蹤每個頻道的狀態
 var channelStates = config.Channels.ToDictionary(c => c.ToLowerInvariant(), _ => false);
@@ -49,9 +56,9 @@ async Task PerformCheck()
 {
     try
     {
-        var liveChannels = await twitchService.GetLiveChannelsAsync();
+        var liveChannels = await twitchService.GetLiveChannelsAsync(channelStates.Keys);
 
-        foreach (var channelName in channelStates.Keys)
+        foreach (var channelName in channelStates.Keys.ToList())
         {
             var isCurrentlyLive = liveChannels.Contains(channelName);
             var wasAlreadyLive = channelStates[channelName];
@@ -69,7 +76,6 @@ async Task PerformCheck()
             }
         }
 
-        // Heartbeat 訊息
         var liveCount = channelStates.Values.Count(isLive => isLive);
         Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] 狀態檢查完成。目前監控中: {channelStates.Count} 個頻道 (正在直播: {liveCount})");
     }
@@ -83,10 +89,64 @@ async Task PerformCheck()
 await PerformCheck();
 
 // 2. 進入計時迴圈
-using var timer = new PeriodicTimer(TimeSpan.FromMinutes(config.PollIntervalInMinutes));
-while (await timer.WaitForNextTickAsync())
+var currentTimerInterval = config.PollIntervalInMinutes;
+var timer = new PeriodicTimer(TimeSpan.FromMinutes(currentTimerInterval));
+
+try
 {
-    await PerformCheck();
+    while (await timer.WaitForNextTickAsync())
+    {
+        // 動態更新設定：重新讀取 .env
+        DotEnv.Load();
+        var refreshConfig = new ConfigurationBuilder().AddEnvironmentVariables().Build();
+        
+        // 更新頻道清單
+        var updatedChannelsRaw = refreshConfig["TWITCH_TARGET_CHANNEL"];
+        if (!string.IsNullOrEmpty(updatedChannelsRaw))
+        {
+            var updatedChannels = updatedChannelsRaw
+                .Split([',', ';', ' '], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Select(c => c.ToLowerInvariant())
+                .ToList();
+
+            config.Channels.Clear();
+            config.Channels.AddRange(updatedChannels);
+
+            foreach (var ch in updatedChannels.Where(ch => !channelStates.ContainsKey(ch)))
+            {
+                channelStates[ch] = false;
+                Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] 動態新增監控清單: {ch}");
+            }
+            var removed = channelStates.Keys.Where(ch => !updatedChannels.Contains(ch)).ToList();
+            foreach (var ch in removed)
+            {
+                channelStates.Remove(ch);
+                Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] 動態移除監控清單: {ch}");
+            }
+        }
+
+        // 動態更新輪詢間隔
+        var updatedPollIntervalStr = refreshConfig["TWITCH_POLL_INTERVAL"];
+        if (int.TryParse(updatedPollIntervalStr, out int updatedInterval) && updatedInterval > 0)
+        {
+            if (updatedInterval != currentTimerInterval)
+            {
+                Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] 偵測到輪詢間隔變更: {currentTimerInterval} -> {updatedInterval} 分鐘");
+                currentTimerInterval = updatedInterval;
+                config.PollIntervalInMinutes = updatedInterval;
+                
+                // 重置計時器
+                timer.Dispose();
+                timer = new PeriodicTimer(TimeSpan.FromMinutes(currentTimerInterval));
+            }
+        }
+
+        await PerformCheck();
+    }
+}
+finally
+{
+    timer.Dispose();
 }
 
 static void OpenBrowser(string url)
