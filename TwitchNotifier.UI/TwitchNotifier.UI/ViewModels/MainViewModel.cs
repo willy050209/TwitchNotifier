@@ -161,6 +161,43 @@ public partial class MainViewModel : ViewModelBase
         StartMonitoring();
     }
 
+    [RelayCommand]
+    private void SortByName()
+    {
+        var sorted = Channels.OrderBy(c => c.DisplayName).ToList();
+        ReorderChannels(sorted);
+        StatusText = "已按名稱排序";
+    }
+
+    [RelayCommand]
+    private void SortByStatus()
+    {
+        // 正在直播的在前，接著按名稱排序
+        var sorted = Channels.OrderByDescending(c => c.IsLive)
+                             .ThenBy(c => c.DisplayName)
+                             .ToList();
+        ReorderChannels(sorted);
+        StatusText = "已按直播狀態排序";
+    }
+
+    private void ReorderChannels(List<ChannelConfig> sortedList)
+    {
+        Channels.Clear();
+        foreach (var channel in sortedList)
+        {
+            // 重新掛載監聽器，因為原本的監聽器會隨 Clear 消失（對應原本 AddChannel 邏輯）
+            channel.PropertyChanged += (s, e) => {
+                if (e.PropertyName == nameof(ChannelConfig.IsEnabled))
+                {
+                    _configService.SaveChannels(Channels);
+                    StartMonitoring();
+                }
+            };
+            Channels.Add(channel);
+        }
+        _configService.SaveChannels(Channels);
+    }
+
     private void StartMonitoring()
     {
         if (string.IsNullOrEmpty(_appConfig.ClientId) || string.IsNullOrEmpty(_appConfig.ClientSecret))

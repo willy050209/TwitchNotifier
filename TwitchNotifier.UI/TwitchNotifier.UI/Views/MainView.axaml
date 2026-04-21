@@ -13,11 +13,11 @@
   </Design.DataContext>
 
   <Grid RowDefinitions="Auto, *, Auto" Margin="20">
-        <!-- 頂部新增區域 -->
+        <!-- 頂部新增與排序區域 -->
         <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="10" Margin="0,0,0,20">
             <TextBox Text="{Binding NewChannelName}" 
                      Watermark="輸入 Twitch 頻道名稱..." 
-                     Width="300"
+                     Width="250"
                      VerticalAlignment="Center">
                 <TextBox.KeyBindings>
                     <KeyBinding Gesture="Enter" Command="{Binding AddChannelCommand}" />
@@ -27,6 +27,16 @@
                     Command="{Binding AddChannelCommand}"
                     Classes="accent"
                     VerticalAlignment="Center" />
+            
+            <Separator Width="1" Height="20" Margin="5,0" Background="#ddd" VerticalAlignment="Center" />
+            
+            <TextBlock Text="排序:" VerticalAlignment="Center" Foreground="#666" Margin="5,0,0,0" />
+            <Button Content="按名稱" 
+                    Command="{Binding SortByNameCommand}"
+                    VerticalAlignment="Center" />
+            <Button Content="按狀態" 
+                    Command="{Binding SortByStatusCommand}"
+                    VerticalAlignment="Center" />
         </StackPanel>
 
         <!-- 頻道清單 -->
@@ -34,6 +44,7 @@
                   ItemsSource="{Binding Channels}" 
                   AutoGenerateColumns="False"
                   IsReadOnly="False"
+                  CanUserSortColumns="True"
                   CanUserResizeColumns="True"
                   GridLinesVisibility="Horizontal"
                   BorderThickness="1"
@@ -41,7 +52,7 @@
                   BorderBrush="{DynamicResource SystemControlForegroundBaseMediumLowBrush}">
             <DataGrid.Columns>
                 <!-- 頻道頭貼與狀態 -->
-                <DataGridTemplateColumn Header="頻道" Width="Auto">
+                <DataGridTemplateColumn Header="頻道" Width="Auto" SortMemberPath="IsLive">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate x:DataType="models:ChannelConfig">
                             <Panel Margin="5">
@@ -62,7 +73,7 @@
                 </DataGridTemplateColumn>
                 
                 <!-- 名稱與 ID -->
-                <DataGridTemplateColumn Header="名稱" Width="*">
+                <DataGridTemplateColumn Header="名稱" Width="*" SortMemberPath="DisplayName">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate x:DataType="models:ChannelConfig">
                             <StackPanel VerticalAlignment="Center" Margin="10,0">
