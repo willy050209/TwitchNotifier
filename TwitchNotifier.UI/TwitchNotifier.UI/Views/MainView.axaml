@@ -37,20 +37,41 @@
                   CanUserResizeColumns="True"
                   GridLinesVisibility="Horizontal"
                   BorderThickness="1"
+                  RowHeight="60"
                   BorderBrush="{DynamicResource SystemControlForegroundBaseMediumLowBrush}">
             <DataGrid.Columns>
-                <DataGridTemplateColumn Header="狀態" Width="80">
+                <!-- 頻道頭貼與狀態 -->
+                <DataGridTemplateColumn Header="頻道" Width="Auto">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate x:DataType="models:ChannelConfig">
-                            <Ellipse Width="12" Height="12" 
-                                     Fill="{Binding IsLive, Converter={StaticResource LiveColorConverter}}"
-                                     ToolTip.Tip="{Binding IsLive, Converter={StaticResource LiveTextConverter}}"
-                                     HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            <Panel Margin="5">
+                                <!-- 頭貼 -->
+                                <Border Width="40" Height="40" CornerRadius="20" ClipToBounds="True">
+                                    <Image Source="{Binding ProfileImage}" 
+                                           Stretch="UniformToFill" />
+                                </Border>
+                                <!-- 狀態小圓點 -->
+                                <Ellipse Width="12" Height="12" 
+                                         Fill="{Binding IsLive, Converter={StaticResource LiveColorConverter}}"
+                                         Stroke="White" StrokeThickness="2"
+                                         HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                                         Margin="0,0,2,2" />
+                            </Panel>
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
                 
-                <DataGridTextColumn Header="頻道名稱" Binding="{Binding Name}" Width="*" IsReadOnly="True" />
+                <!-- 名稱與 ID -->
+                <DataGridTemplateColumn Header="名稱" Width="*">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate x:DataType="models:ChannelConfig">
+                            <StackPanel VerticalAlignment="Center" Margin="10,0">
+                                <TextBlock Text="{Binding DisplayName}" FontWeight="Bold" FontSize="14" />
+                                <TextBlock Text="{Binding Name}" FontSize="12" Foreground="Gray" />
+                            </StackPanel>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
                 
                 <DataGridCheckBoxColumn Header="監控中" Binding="{Binding IsEnabled}" Width="100" />
                 

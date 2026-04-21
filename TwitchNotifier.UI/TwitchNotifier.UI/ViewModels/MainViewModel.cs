@@ -1,10 +1,14 @@
 // filepath: ViewModels/MainViewModel.cs
+using System.Collections.Concurrent;
+using Avalonia.Media.Imaging;
+
 namespace TwitchNotifier.UI.ViewModels;
 
 public partial class MainViewModel : ViewModelBase
 {
     private readonly ConfigService _configService;
     private readonly MonitoringService _monitoringService;
+    private readonly TwitchService _twitchService;
     private readonly AppConfig _appConfig;
 
     [ObservableProperty]
@@ -27,8 +31,8 @@ public partial class MainViewModel : ViewModelBase
         var provider = services.BuildServiceProvider();
         var httpClientFactory = provider.GetRequiredService<IHttpClientFactory>();
         
-        var twitchService = new TwitchService(httpClientFactory, _appConfig);
-        _monitoringService = new MonitoringService(twitchService, _appConfig);
+        _twitchService = new TwitchService(httpClientFactory, _appConfig);
+        _monitoringService = new MonitoringService(_twitchService, _appConfig);
 
         var loadedChannels = _configService.LoadChannels();
         Channels = new ObservableCollection<ChannelConfig>(loadedChannels);
@@ -50,11 +54,63 @@ public partial class MainViewModel : ViewModelBase
         _monitoringService.OnStatusUpdated += () => 
             Dispatcher.UIThread.InvokeAsync(() => StatusText = $"上次檢查時間: {DateTime.Now:HH:mm:ss}");
 
+        _ = RefreshChannelInfoAsync();
         StartMonitoring();
     }
 
+    private static readonly ConcurrentDictionary<string, Bitmap> ImageCache = new();
+    private static readonly HttpClient ImageHttpClient = new();
+
+    private async Task RefreshChannelInfoAsync(IEnumerable<ChannelConfig>? targetChannels = null)
+    {
+        try
+        {
+            var listToRefresh = (targetChannels ?? Channels).ToList();
+            var logins = listToRefresh.Select(c => c.Name).ToList();
+            if (logins.Count == 0) return;
+
+            var users = await _twitchService.GetUsersInfoAsync(logins);
+            foreach (var user in users)
+            {
+                var channel = listToRefresh.FirstOrDefault(c => c.Name.Equals(user.Login, StringComparison.OrdinalIgnoreCase));
+                if (channel != null)
+                {
+                    channel.DisplayName = user.DisplayName;
+                    channel.ProfileImageUrl = user.ProfileImageUrl;
+                    
+                    // 背景下載圖片
+                    _ = Task.Run(async () =>
+                    {
+                        if (string.IsNullOrEmpty(user.ProfileImageUrl)) return;
+                        
+                        if (ImageCache.TryGetValue(user.ProfileImageUrl, out var cached))
+                        {
+                            await Dispatcher.UIThread.InvokeAsync(() => channel.ProfileImage = cached);
+                            return;
+                        }
+
+                        try
+                        {
+                            var bytes = await ImageHttpClient.GetByteArrayAsync(user.ProfileImageUrl);
+                            using var ms = new System.IO.MemoryStream(bytes);
+                            var bitmap = new Bitmap(ms);
+                            ImageCache[user.ProfileImageUrl] = bitmap;
+                            await Dispatcher.UIThread.InvokeAsync(() => channel.ProfileImage = bitmap);
+                        }
+                        catch { }
+                    });
+                }
+            }
+            _configService.SaveChannels(Channels);
+        }
+        catch (Exception ex)
+        {
+            StatusText = $"取得頻道資訊失敗: {ex.Message}";
+        }
+    }
+
     [RelayCommand]
-    private void AddChannel()
+    private async Task AddChannel()
     {
         if (string.IsNullOrWhiteSpace(NewChannelName)) return;
 
@@ -74,6 +130,10 @@ public partial class MainViewModel : ViewModelBase
             }
         };
         Channels.Add(newChannel);
+        
+        // 即時取得新頻道的資訊
+        await RefreshChannelInfoAsync([newChannel]);
+        
         _configService.SaveChannels(Channels);
         NewChannelName = string.Empty;
         

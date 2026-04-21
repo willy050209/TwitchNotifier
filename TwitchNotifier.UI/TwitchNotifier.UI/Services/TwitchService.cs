@@ -64,6 +64,52 @@ public class TwitchService(IHttpClientFactory httpClientFactory, AppConfig confi
         return liveChannels;
     }
 
+    /// <summary>
+    /// 取得指定使用者的詳細資訊 (顯示名稱、頭貼等)
+    /// </summary>
+    public async Task<List<UserData>> GetUsersInfoAsync(IEnumerable<string> logins, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(logins);
+        
+        var loginList = logins.ToList();
+        if (loginList.Count == 0) return [];
+
+        if (string.IsNullOrEmpty(_accessToken))
+        {
+            await RefreshTokenAsync(ct);
+        }
+
+        using var client = httpClientFactory.CreateClient("TwitchApi");
+        
+        var users = new List<UserData>();
+        foreach (var chunk in loginList.Chunk(100))
+        {
+            var queryParams = string.Join("&", chunk.Select(c => $"login={Uri.EscapeDataString(c.ToLowerInvariant())}"));
+            var request = new HttpRequestMessage(HttpMethod.Get, $"users?{queryParams}");
+            
+            request.Headers.Add("Client-Id", config.ClientId);
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _accessToken);
+
+            var response = await client.SendAsync(request, ct);
+
+            if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+            {
+                await RefreshTokenAsync(ct);
+                return await GetUsersInfoAsync(loginList, ct);
+            }
+
+            response.EnsureSuccessStatusCode();
+
+            var userResponse = await response.Content.ReadFromJsonAsync<TwitchUserResponse>(JsonOptions, ct);
+            if (userResponse?.Data != null)
+            {
+                users.AddRange(userResponse.Data);
+            }
+        }
+
+        return users;
+    }
+
     private async Task RefreshTokenAsync(CancellationToken ct)
     {
         using var client = httpClientFactory.CreateClient("TwitchAuth");
