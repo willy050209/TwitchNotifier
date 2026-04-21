@@ -8,8 +8,9 @@
 *.userosscache
 *.sln.docstates
 
-# 重要：忽略環境變數檔案 (包含你的 Twitch 憑證)
+# 重要：忽略環境變數與個人頻道設定
 .env
+channels.json
 
 # 其他系統檔案
 .DS_Store
