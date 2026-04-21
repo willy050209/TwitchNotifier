@@ -1,0 +1,76 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:TwitchNotifier.UI.ViewModels"
+             xmlns:models="using:TwitchNotifier.UI.Models"
+             mc:Ignorable="d" d:DesignWidth="700" d:DesignHeight="500"
+             x:Class="TwitchNotifier.UI.Views.MainView"
+             x:DataType="vm:MainViewModel">
+
+  <Design.DataContext>
+    <vm:MainViewModel />
+  </Design.DataContext>
+
+  <Grid RowDefinitions="Auto, *, Auto" Margin="20">
+        <!-- 頂部新增區域 -->
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="10" Margin="0,0,0,20">
+            <TextBox Text="{Binding NewChannelName}" 
+                     Watermark="輸入 Twitch 頻道名稱..." 
+                     Width="300"
+                     VerticalAlignment="Center">
+                <TextBox.KeyBindings>
+                    <KeyBinding Gesture="Enter" Command="{Binding AddChannelCommand}" />
+                </TextBox.KeyBindings>
+            </TextBox>
+            <Button Content="新增頻道" 
+                    Command="{Binding AddChannelCommand}"
+                    Classes="accent"
+                    VerticalAlignment="Center" />
+        </StackPanel>
+
+        <!-- 頻道清單 -->
+        <DataGrid Grid.Row="1" 
+                  ItemsSource="{Binding Channels}" 
+                  AutoGenerateColumns="False"
+                  IsReadOnly="False"
+                  CanUserResizeColumns="True"
+                  GridLinesVisibility="Horizontal"
+                  BorderThickness="1"
+                  BorderBrush="{DynamicResource SystemControlForegroundBaseMediumLowBrush}">
+            <DataGrid.Columns>
+                <DataGridTemplateColumn Header="狀態" Width="80">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate x:DataType="models:ChannelConfig">
+                            <Ellipse Width="12" Height="12" 
+                                     Fill="{Binding IsLive, Converter={StaticResource LiveColorConverter}}"
+                                     ToolTip.Tip="{Binding IsLive, Converter={StaticResource LiveTextConverter}}"
+                                     HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                
+                <DataGridTextColumn Header="頻道名稱" Binding="{Binding Name}" Width="*" IsReadOnly="True" />
+                
+                <DataGridCheckBoxColumn Header="監控中" Binding="{Binding IsEnabled}" Width="100" />
+                
+                <DataGridTemplateColumn Header="操作" Width="100">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate x:DataType="models:ChannelConfig">
+                            <Button Content="刪除" 
+                                    Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).DeleteChannelCommand}"
+                                    CommandParameter="{Binding}"
+                                    Classes="danger"
+                                    HorizontalAlignment="Center" />
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+            </DataGrid.Columns>
+        </DataGrid>
+
+        <!-- 底部狀態列 -->
+        <Border Grid.Row="2" Background="#f0f0f0" Padding="10" CornerRadius="4" Margin="0,20,0,0">
+            <TextBlock Text="{Binding StatusText}" Foreground="#666" />
+        </Border>
+    </Grid>
+</UserControl>

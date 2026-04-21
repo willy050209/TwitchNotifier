@@ -1,0 +1,43 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="using:TwitchNotifier.UI"
+             xmlns:converters="using:TwitchNotifier.UI.Converters"
+             x:Class="TwitchNotifier.UI.App"
+             RequestedThemeVariant="Default">
+             <!-- "Default" ThemeVariant follows system theme variant. "Dark" or "Light" are other available options. -->
+
+    <Application.DataTemplates>
+        <local:ViewLocator/>
+    </Application.DataTemplates>
+
+    <Application.Resources>
+        <ResourceDictionary>
+            <converters:LiveColorConverter x:Key="LiveColorConverter" />
+            <converters:LiveTextConverter x:Key="LiveTextConverter" />
+        </ResourceDictionary>
+    </Application.Resources>
+
+    <Application.Styles>
+        <FluentTheme />
+        <StyleInclude Source="avares://Avalonia.Controls.DataGrid/Themes/Fluent.xaml"/>
+        
+        <!-- 自定義按鈕樣式 -->
+        <Style Selector="Button.accent">
+            <Setter Property="Background" Value="#9146FF" />
+            <Setter Property="Foreground" Value="White" />
+        </Style>
+        <Style Selector="Button.accent:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#772CE8" />
+            <Setter Property="Foreground" Value="White" />
+        </Style>
+        
+        <Style Selector="Button.danger">
+            <Setter Property="Background" Value="#FF4B4B" />
+            <Setter Property="Foreground" Value="White" />
+        </Style>
+        <Style Selector="Button.danger:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#E63946" />
+            <Setter Property="Foreground" Value="White" />
+        </Style>
+    </Application.Styles>
+</Application>

@@ -1,0 +1,9 @@
+<Project>
+  <PropertyGroup>
+    <!-- 忽略特定的安全性與平台警告：
+         NU1903, NU1603: Linux 傳遞依賴漏洞與版本衝突 (Windows 開發不影響)
+         XA0141: Android 16 頁面大小警告
+    -->
+    <NoWarn>$(NoWarn);NU1903;NU1603;XA0141</NoWarn>
+  </PropertyGroup>
+</Project>
