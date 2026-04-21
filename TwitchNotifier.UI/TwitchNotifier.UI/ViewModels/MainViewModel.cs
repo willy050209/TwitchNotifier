@@ -17,6 +17,9 @@ public partial class MainViewModel : ViewModelBase
     [ObservableProperty]
     private string _statusText = "準備就緒";
 
+    [ObservableProperty]
+    private int _pollInterval;
+
     public ObservableCollection<ChannelConfig> Channels { get; }
 
     public MainViewModel()
@@ -37,6 +40,8 @@ public partial class MainViewModel : ViewModelBase
         var loadedChannels = _configService.LoadChannels();
         Channels = new ObservableCollection<ChannelConfig>(loadedChannels);
         
+        _pollInterval = _appConfig.PollIntervalInMinutes;
+
         foreach (var channel in Channels)
         {
             channel.PropertyChanged += (s, e) => {
@@ -56,6 +61,13 @@ public partial class MainViewModel : ViewModelBase
 
         _ = RefreshChannelInfoAsync();
         StartMonitoring();
+    }
+
+    partial void OnPollIntervalChanged(int value)
+    {
+        if (value <= 0) return;
+        _monitoringService.UpdateInterval(value, Channels);
+        StatusText = $"輪詢間隔已更新為 {value} 分鐘";
     }
 
     private static readonly ConcurrentDictionary<string, Bitmap> ImageCache = new();

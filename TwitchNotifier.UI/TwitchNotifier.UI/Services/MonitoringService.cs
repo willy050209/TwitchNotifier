@@ -35,6 +35,16 @@ public class MonitoringService(TwitchService twitchService, AppConfig config)
         _timer?.Dispose();
     }
 
+    /// <summary>
+    /// 更新輪詢間隔並重新啟動計時器
+    /// </summary>
+    public void UpdateInterval(int minutes, IEnumerable<ChannelConfig> channels)
+    {
+        if (minutes <= 0) return;
+        config.PollIntervalInMinutes = minutes;
+        Start(channels);
+    }
+
     private async Task RunLoop(IEnumerable<ChannelConfig> channels, CancellationToken ct)
     {
         try

@@ -11,7 +11,7 @@ public class LiveColorConverter : IValueConverter
     {
         if (value is bool isLive)
         {
-            return isLive ? Brushes.Red : Brushes.Gray;
+            return isLive ? Brushes.Green : Brushes.Gray;
         }
         return Brushes.Gray;
     }
