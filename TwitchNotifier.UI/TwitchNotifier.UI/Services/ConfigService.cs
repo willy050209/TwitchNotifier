@@ -10,8 +10,10 @@ namespace TwitchNotifier.UI.Services;
 public class ConfigService
 {
     private const string ChannelsFileName = "channels.json";
-    private readonly string _channelsPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, ChannelsFileName);
-    private readonly string _envPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, ".env");
+    
+    // 使用目前工作目錄 (通常是專案根目錄) 以確保資料持久化
+    private readonly string _channelsPath = Path.Combine(Environment.CurrentDirectory, ChannelsFileName);
+    private readonly string _envPath = Path.Combine(Environment.CurrentDirectory, ".env");
 
     /// <summary>
     /// 載入 API 設定

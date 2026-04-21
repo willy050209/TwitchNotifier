@@ -182,18 +182,15 @@ public partial class MainViewModel : ViewModelBase
 
     private void ReorderChannels(List<ChannelConfig> sortedList)
     {
-        Channels.Clear();
-        foreach (var channel in sortedList)
+        // 不使用 Clear() 以避免重建整個清單可能導致的 UI 閃爍或監聽器問題 (雖然這裡我們是手動掛載)
+        // 但為了保險起見，我們直接更新 ObservableCollection
+        for (int i = 0; i < sortedList.Count; i++)
         {
-            // 重新掛載監聽器，因為原本的監聽器會隨 Clear 消失（對應原本 AddChannel 邏輯）
-            channel.PropertyChanged += (s, e) => {
-                if (e.PropertyName == nameof(ChannelConfig.IsEnabled))
-                {
-                    _configService.SaveChannels(Channels);
-                    StartMonitoring();
-                }
-            };
-            Channels.Add(channel);
+            var oldIndex = Channels.IndexOf(sortedList[i]);
+            if (oldIndex != i && oldIndex != -1)
+            {
+                Channels.Move(oldIndex, i);
+            }
         }
         _configService.SaveChannels(Channels);
     }
