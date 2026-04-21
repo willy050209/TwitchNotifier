@@ -10,24 +10,47 @@ namespace TwitchNotifier.UI.Services;
 public class ConfigService
 {
     private const string ChannelsFileName = "channels.json";
-    
-    // 使用目前工作目錄 (通常是專案根目錄) 以確保資料持久化
-    private readonly string _channelsPath = Path.Combine(Environment.CurrentDirectory, ChannelsFileName);
-    private readonly string _envPath = Path.Combine(Environment.CurrentDirectory, ".env");
+    private readonly string _basePath;
+    private readonly string _channelsPath;
+    private readonly string _envPath;
+
+    public ConfigService()
+    {
+        // 尋找專案根目錄 (有 .env 的地方)
+        _basePath = FindProjectRoot(AppDomain.CurrentDomain.BaseDirectory);
+        _channelsPath = Path.Combine(_basePath, ChannelsFileName);
+        _envPath = Path.Combine(_basePath, ".env");
+        
+        Console.WriteLine($"[Config] 使用工作目錄: {_basePath}");
+    }
+
+    private static string FindProjectRoot(string startDir)
+    {
+        var current = new DirectoryInfo(startDir);
+        while (current != null)
+        {
+            if (File.Exists(Path.Combine(current.FullName, ".env")))
+            {
+                return current.FullName;
+            }
+            current = current.Parent;
+        }
+        // 若都沒找到，就用執行目錄
+        return AppDomain.CurrentDomain.BaseDirectory;
+    }
 
     /// <summary>
     /// 載入 API 設定
     /// </summary>
     public AppConfig LoadAppConfig()
     {
-        // 優先載入執行目錄下的 .env，若無則嘗試上層 (開發環境)
-        if (!File.Exists(_envPath))
+        if (File.Exists(_envPath))
         {
-            DotEnv.Load();
+            DotEnv.Load(new DotEnvOptions(envFilePaths: [_envPath]));
         }
         else
         {
-            DotEnv.Load(new DotEnvOptions(envFilePaths: [_envPath]));
+            DotEnv.Load(); // 嘗試預設搜尋
         }
 
         var config = new ConfigurationBuilder()
@@ -48,7 +71,7 @@ public class ConfigService
     }
 
     /// <summary>
-    /// 載入頻道清單，並處理舊版遷移
+    /// 載入頻道清單
     /// </summary>
     public List<ChannelConfig> LoadChannels()
     {
@@ -57,18 +80,24 @@ public class ConfigService
             try
             {
                 var json = File.ReadAllText(_channelsPath);
-                return JsonSerializer.Deserialize<List<ChannelConfig>>(json) ?? [];
+                var list = JsonSerializer.Deserialize<List<ChannelConfig>>(json);
+                if (list != null && list.Count > 0)
+                {
+                    Console.WriteLine($"[Config] 已從 {_channelsPath} 載入 {list.Count} 個頻道");
+                    return list;
+                }
             }
-            catch
+            catch (Exception ex)
             {
-                return [];
+                Console.WriteLine($"[Config] 讀取 JSON 失敗: {ex.Message}");
             }
         }
 
-        // 嘗試從 .env 遷移
+        // 嘗試從環境變數遷移 (僅在 JSON 不存在時)
         var envChannelsRaw = Environment.GetEnvironmentVariable("TWITCH_TARGET_CHANNEL");
         if (!string.IsNullOrEmpty(envChannelsRaw))
         {
+            Console.WriteLine("[Config] 偵測到舊版 .env 設定，執行自動遷移...");
             var migrated = envChannelsRaw
                 .Split([',', ';', ' '], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
                 .Select(name => new ChannelConfig(name, true))
@@ -86,7 +115,14 @@ public class ConfigService
     /// </summary>
     public void SaveChannels(IEnumerable<ChannelConfig> channels)
     {
-        var json = JsonSerializer.Serialize(channels, new JsonSerializerOptions { WriteIndented = true });
-        File.WriteAllText(_channelsPath, json);
+        try
+        {
+            var json = JsonSerializer.Serialize(channels, new JsonSerializerOptions { WriteIndented = true });
+            File.WriteAllText(_channelsPath, json);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[Config] 儲存失敗: {ex.Message}");
+        }
     }
 }
